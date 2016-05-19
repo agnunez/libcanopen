@@ -1,0 +1,42 @@
+#!/usr/bin/python
+import sys, time
+from subprocess import call,check_output
+
+if len(sys.argv) == 2:
+    # get the node address from the first command-line argument
+    node = int(sys.argv[1])
+else:
+    print("usage: %s NODE" % sys.argv[0])
+    exit(1)
+
+def psplit(data):
+  i=0
+  for line in data:
+    print "%s: %s" % (i,line)
+    i+=1
+
+'''
+  can0 node init
+'''
+
+try:
+  result =check_output(["rs-canopen-node-info", "can0",str(node)])
+  data = result.split()
+  print "Node %s ok. Vendor: %s" % (data[2],data[6])
+except:
+  print "Error: Node not found!"
+
+'''
+  count number of MCM with 
+  rs-canopen-sdo-upload can-interface NODE INDEX SUBINDEX
+'''
+
+try:
+  result =check_output(["rs-canopen-sdo-upload", "can0",str(node),"2020","0"])
+  data = result.split()
+  psplit(data)
+except:
+  print "Error: wrong number of MCM's!"
+
+
+
