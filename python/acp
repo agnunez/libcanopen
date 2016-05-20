@@ -1,6 +1,52 @@
 #!/usr/bin/python
-import sys, time
+import sys, time,calendar,math
+from pycanopen import *
 from subprocess import call,check_output
+
+'''
+ user defined functions
+'''
+offset=0  #  TimeBack machine offset. Now unless arguments 
+lu=15  #   Range of colors for look up table
+
+def sgn(i):
+  if (i > 32767): i-=65536
+  return i
+
+def now(s=0,m=0,h=0,d=0):      # convert current UT to TAI with and offset back of s sec, m mins, h hours, d days
+  return time.time()+34.0-(s+60*m+3600*h+86400*d)+offset
+
+def color(c):
+   if c<0: c=0
+   if c>lu: c=lu
+   blut=[40,44,104,100,42,102,46,106,47,107,103,105,101,43,45,41]
+   flut=[39,39,39,39,39,39,39,39,30,30,30,30,30,30,30,30]
+  #       0  1   2  3  4   5  6  7  8  9  10  11 12   13  14  15
+   return '\033[%sm\033[%sm' % (blut[c],flut[c])
+
+class tcolor:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+
+def at(x, y, text, color=''):
+     sys.stdout.write("\x1b7\x1b[%d;%df%s\x1b8" % (y, x, color + text))
+     sys.stdout.flush()
+
+def cls():
+  sys.stderr.write("\x1b[2J\x1b[H")  # Clear screen
+
+def header():
+  at(0,0, "ACP EdgeSensor Tester", tcolor.OKGREEN)
+
+
+'''
+  check for number of arguments or help
+'''
 
 if len(sys.argv) == 2:
     # get the node address from the first command-line argument
@@ -18,25 +64,88 @@ def psplit(data):
 '''
   can0 node init
 '''
+try:
+  canopen = CANopen()
+except:
+  print "Error 0: CANopen construct failed"
 
 try:
-  result =check_output(["rs-canopen-node-info", "can0",str(node)])
-  data = result.split()
-  print "Node %s ok. Vendor: %s" % (data[2],data[6])
+  vendor = canopen.SDOUploadExp(node, 0x1018, 0x01)
+  prodid = canopen.SDOUploadExp(node, 0x1018, 0x02)
+  swver  = canopen.SDOUploadExp(node, 0x1018, 0x03)
+  print("Info Node: %s VendorID: 0x%.8X ProductID: 0x%.8X SoftwareVer: 0x%.8X") % (node,vendor,prodid,swver)
 except:
   print "Error: Node not found!"
 
 '''
-  count number of MCM with 
+  count number of MCM with
   rs-canopen-sdo-upload can-interface NODE INDEX SUBINDEX
 '''
-
 try:
-  result =check_output(["rs-canopen-sdo-upload", "can0",str(node),"2020","0"])
-  data = result.split()
-  psplit(data)
+  mcms=[]                                             # create an empty list of MCM's
+  mcmmask = canopen.SDOUploadExp(node, 0x2020, 0x00)  # mask with no. of MCM's connected and items position
+  nomcm = (mcmmask & 0b11100000000) >> 8              # number of MCM's
+  print "No. MCM's: %s" % nomcm
+  for i in range (1,9):
+    if ((mcmmask & (1 << (i-1))) >> (i-1)): 
+      mcms.append(i)
 except:
-  print "Error: wrong number of MCM's!"
+  print "Wrong number of MCM's"
 
+def rms(buffer):
+  result=0.0
+  size=len(buffer)
+  for i in buffer:
+    result+=i*i
+  return math.sqrt(result/size)
 
+def rmspos(mcm,samples):
+  pos = []
+  noise = []
+  avg= 0.0
+  for i in range(0,samples):
+    position = sgn(canopen.SDOUploadExp(node, 0x6401, mcm))
+    position = ((float(position)+32768.)/65635.*2.5)
+    avg+=position
+    pos.append(position)
+  avg/=samples
+  for i in range(0,samples):
+    noise.append(pos[i]-avg)
+  return avg,rms(noise)
+  
 
+'''
+  main
+'''
+cls()
+header()
+
+while 1:
+  at(30,1, time.strftime("%a, %d %b %Y %H:%M:%S UT",  time.localtime(now())) ,tcolor.HEADER)
+  for mcm in mcms:
+    #position = sgn(canopen.SDOUploadExp(node, 0x6401, mcm))
+    #position = (float(position)+32768.)/65635.*2.5
+    avg,noise=rmspos(mcm,200)
+    at( 1,mcm+2,"MCM( ) Position:      ", tcolor.OKGREEN)
+    at( 5,mcm+2,"%s" % mcm, tcolor.WARNING)
+    at(18,mcm+2,"%2.5f" % avg, tcolor.WARNING)
+    at(26,mcm+2,"%2.5f" % noise, tcolor.WARNING)
+
+    gain = canopen.SDOUploadExp(node, 0x6411, mcm)
+    at(36,mcm+2,"Gain:      ", tcolor.OKGREEN)
+    at(42,mcm+2,("%0d" % gain), tcolor.WARNING)
+
+    offset = sgn(canopen.SDOUploadExp(node, 0x6411, mcm+6))
+    at(48,mcm+2,"Offset:      ", tcolor.OKGREEN)
+    at(56,mcm+2,("%0d" % offset), tcolor.WARNING)
+
+    temp = canopen.SDOUploadExp(node, 0x6404, mcm)
+    temp = (float(temp) / 20.)-10.
+    at(62,mcm+2,"Temp:      ", tcolor.OKGREEN)
+    at(68,mcm+2,("%2.1f" % temp), tcolor.WARNING)
+
+    hum = canopen.SDOUploadExp(node, 0x6404, mcm+6)
+    hum = float(hum-164)/6.35
+    at(73,mcm+2,"Hum:        ", tcolor.OKGREEN)
+    at(78,mcm+2,("%0d" % hum), tcolor.WARNING)
+  time.sleep(0.1)
