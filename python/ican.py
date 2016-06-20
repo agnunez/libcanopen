@@ -1,7 +1,8 @@
 #!/usr/bin/python
-debug=False
+debug=True
 
 import sys, time, math
+import numpy as np
 if not debug:
   from pycanopen import *
 
@@ -21,7 +22,7 @@ def pos(node,mcm):
 
 def mcmgain(node,mcm):
   if debug:
-    return 5300
+    return 53230
   else:
     return rx(node, 0x6411, mcm)
 
@@ -87,9 +88,9 @@ def sgn(i):
   if (i > 32767): i-=65536
   return i
 
-def rmspos(node,mcm,samples):
+def mcmpos(node,mcm,samples):
   t0 = time.time()
-  delta = 0
+  delta = 0.
   pos = []
   noise = []
   avg= 0.0
@@ -112,7 +113,7 @@ def rmspos(node,mcm,samples):
       delta += (t1-t0)
       t0=t1
     avg/=samples
-  delta = delta / samples
+  delta = (delta / samples)*1e6
   for i in range(0,samples):
     noise.append(pos[i]-avg)
   t1 = time.time()

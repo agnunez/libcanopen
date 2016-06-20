@@ -32,7 +32,7 @@ header("iCAN ACP TEST")
 while 1:
   at(30,1, time.strftime("%a, %d %b %Y %H:%M:%S UT",  time.localtime()) ,tcolor.HEADER)
   for mcm in mcms:
-    avg,noise,delta=rmspos(node,mcm,200)
+    avg,noise,delta=mcmpos(node,mcm,200)
     at( 1,mcm+2,"MCM( ) Position:      ", tcolor.OKGREEN)
     at( 5,mcm+2,"%s" % mcm, tcolor.WARNING)
     at(17,mcm+2,"%2.5fv" % avg, tcolor.WARNING)
