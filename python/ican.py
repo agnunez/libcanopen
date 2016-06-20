@@ -1,5 +1,5 @@
 #!/usr/bin/python
-debug=True
+debug=False
 
 import sys, time, math
 import numpy as np
@@ -28,7 +28,7 @@ def mcmgain(node,mcm):
 
 def mcmoffset(node,mcm):
   if debug:
-    offset=0
+    return 0
   else:
     return rx(node, 0x6411, mcm+6)
 
@@ -36,13 +36,17 @@ def mcmtemp(node,mcm):
   if debug:
     return 23
   else:
-    return rx(node, 0x6404, mcm)
+    temp=rx(node, 0x6404, mcm)
+    temp=(float(temp)/20.)-10.
+    return temp
 
 def mcmhumid(node,mcm):
   if debug:
     return 50
   else:
-    return rx(node, 0x6404, mcm+6)
+    hum=rx(node, 0x6404, mcm+6)
+    hum=float(hum-164)/6.35
+    return hum
 
 def init(node):
   if debug:

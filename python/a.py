@@ -43,14 +43,13 @@ while 1:
     offset = mcmoffset(node, mcm)
     at(49,mcm+2,"Offset:      ", tcolor.OKGREEN)
     at(57,mcm+2,("%0d" % offset), tcolor.WARNING)
-    temp = (float(mcmtemp(node, mcm))/20.)-10.
+    temp = mcmtemp(node, mcm)
     at(62,mcm+2,"Temp:      ", tcolor.OKGREEN)
     if (temp<40):
       at(68,mcm+2,("%2.1f" % temp), tcolor.WARNING)
     else:
       at(68,mcm+2,("N/A"), tcolor.WARNING)
     hum = mcmhumid(node, mcm)
-    hum = float(hum-164)/6.35
     at(73,mcm+2,"Hum:        ", tcolor.OKGREEN)
     if (hum>-1):
       at(78,mcm+2,("%0d" % hum), tcolor.WARNING)
